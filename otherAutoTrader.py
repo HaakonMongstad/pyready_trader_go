@@ -29,11 +29,6 @@ TICK_SIZE_IN_CENTS = 100
 MIN_BID_NEAREST_TICK = (MINIMUM_BID + TICK_SIZE_IN_CENTS) // TICK_SIZE_IN_CENTS * TICK_SIZE_IN_CENTS
 MAX_ASK_NEAREST_TICK = MAXIMUM_ASK // TICK_SIZE_IN_CENTS * TICK_SIZE_IN_CENTS
 
-future_bid_prices = []
-future_ask_prices = []
-etf_bid_prices = []
-etf_ask_prices = []
-
 class AutoTrader(BaseAutoTrader):
     """Example Auto-trader.
     When it starts this auto-trader places ten-lot bid and ask orders at the

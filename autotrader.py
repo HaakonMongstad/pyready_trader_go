@@ -26,8 +26,8 @@ from ready_trader_go import BaseAutoTrader, Instrument, Lifespan, MAXIMUM_ASK, M
 LOT_SIZE = 10 #originally 10
 POSITION_LIMIT = 100
 TICK_SIZE_IN_CENTS = 100
-MIN_BID_NEAREST_TICK = (MINIMUM_BID + TICK_SIZE_IN_CENTS) // TICK_SIZE_IN_CENTS * TICK_SIZE_IN_CENTS
-MAX_ASK_NEAREST_TICK = MAXIMUM_ASK // TICK_SIZE_IN_CENTS * TICK_SIZE_IN_CENTS
+MIN_BID_NEAREST_TICK = (MINIMUM_BID + TICK_SIZE_IN_CENTS) // TICK_SIZE_IN_CENTS * TICK_SIZE_IN_CENTS #100
+MAX_ASK_NEAREST_TICK = MAXIMUM_ASK // TICK_SIZE_IN_CENTS * TICK_SIZE_IN_CENTS #2147483600
 
 
 class AutoTrader(BaseAutoTrader):
@@ -87,7 +87,7 @@ class AutoTrader(BaseAutoTrader):
             new_bid_price = int(0)
             new_ask_price = int(0)
             # print("start")
-            print(self.position)
+            # print(self.position)
 
             temp_bid_prices = (bid_prices[0] + bid_prices[1] + bid_prices[2] + bid_prices[3] + bid_prices[4])//5
             temp_ask_prices = (ask_prices[0] + ask_prices[1] + ask_prices[2] + ask_prices[3] + ask_prices[4])//5
@@ -108,13 +108,18 @@ class AutoTrader(BaseAutoTrader):
             if bid_prices[0] != 0:
                 if temp_bid_prices >= self.avg_bid_prices and temp_ask_prices >= self.avg_ask_prices:
                     new_bid_price = bid_prices[0] - TICK_SIZE_IN_CENTS
-                    new_ask_price = ask_prices[0] + TICK_SIZE_IN_CENTS
+                    new_ask_price = ask_prices[0] + (TICK_SIZE_IN_CENTS * 2)
+                    
                 else:
                     new_bid_price = bid_prices[0] - (TICK_SIZE_IN_CENTS * 2)
-                    new_ask_price = ask_prices[0] + (TICK_SIZE_IN_CENTS * 2)
+                    new_ask_price = ask_prices[0] + TICK_SIZE_IN_CENTS
+                    
             else:
                 new_bid_price = 0
                 new_ask_price = 0
+
+            #last + im + v
+
 
 
             self.avg_bid_prices = temp_bid_prices
@@ -156,6 +161,7 @@ class AutoTrader(BaseAutoTrader):
         elif client_order_id in self.asks:
             self.position -= volume
             self.send_hedge_order(next(self.order_ids), Side.BID, MAX_ASK_NEAREST_TICK, volume)
+
 
     def on_order_status_message(self, client_order_id: int, fill_volume: int, remaining_volume: int,
                                 fees: int) -> None:
