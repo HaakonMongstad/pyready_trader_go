@@ -36,7 +36,10 @@
     "PositionLimit": 100
   },
   "Traders": {
+    "last-elif": "secret",
+    "last-else": "secret",
+    "TraderTwo": "secret",
     "last+im+v": "secret",
-    "last": "secret"
+    "ask/bid": "secret"
   }
 }

@@ -54,6 +54,9 @@ class AutoTrader(BaseAutoTrader):
         self.prev_ask_prices = [0,0,0,0,0]
         self.prev_bid_prices = [0,0,0,0,0]
 
+        self.ask_canceled_waiting = bool(False)
+        self.bid_canceled_waiting = bool(False)
+
 
     def on_error_message(self, client_order_id: int, error_message: bytes) -> None:
         """Called when the exchange detects an error.
@@ -61,7 +64,6 @@ class AutoTrader(BaseAutoTrader):
         If the error pertains to a particular order, then the client_order_id
         will identify that order, otherwise the client_order_id will be zero.
         """
-        print("error")
         self.logger.warning("error with order %d: %s", client_order_id, error_message.decode())
         if client_order_id != 0 and (client_order_id in self.bids or client_order_id in self.asks):
             self.on_order_status_message(client_order_id, 0, 0, 0)
@@ -164,12 +166,14 @@ class AutoTrader(BaseAutoTrader):
             # print(self.avg_ask_prices, self.avg_bid_prices)
             # print(new_ask_price, new_bid_price)
 
-            if self.bid_id != 0 and new_bid_price not in (self.bid_price, 0):
+            if self.bid_canceled_waiting == False and new_bid_price not in (self.bid_price, 0):
                 self.send_cancel_order(self.bid_id)
-                self.bid_id = 0
-            if self.ask_id != 0 and new_ask_price not in (self.ask_price, 0):
+                self.bid_canceled_waiting = True
+                # self.bid_id = 0
+            if self.ask_canceled_waiting == False and new_ask_price not in (self.ask_price, 0):
                 self.send_cancel_order(self.ask_id)
-                self.ask_id = 0
+                self.ask_canceled_waiting = True
+                # self.ask_id = 0
 
             if self.bid_id == 0 and new_bid_price != 0 and self.position <= POSITION_LIMIT - LOT_SIZE:
                 self.bid_id = next(self.order_ids)
@@ -177,7 +181,7 @@ class AutoTrader(BaseAutoTrader):
                 self.send_insert_order(self.bid_id, Side.BUY, new_bid_price, LOT_SIZE, Lifespan.GOOD_FOR_DAY)
                 self.bids.add(self.bid_id)
 
-            if self.ask_id == 0 and new_ask_price != 0 and self.position >= -POSITION_LIMIT + LOT_SIZE:
+            if self.ask_id == 0 and new_ask_price != 0 and self.position  >= -POSITION_LIMIT + LOT_SIZE:
                 self.ask_id = next(self.order_ids)
                 self.ask_price = new_ask_price
                 self.send_insert_order(self.ask_id, Side.SELL, new_ask_price, LOT_SIZE, Lifespan.GOOD_FOR_DAY)
@@ -193,16 +197,29 @@ class AutoTrader(BaseAutoTrader):
         which may be better than the order's limit price. The volume is
         the number of lots filled at that price.
         """
+
         self.logger.info("received order filled for order %d with price %d and volume %d", client_order_id,
                          price, volume)
+
+        
+        
+        # if client_order_id in self.bid_trash:
+        #     self.position += volume
+        #     self.send_hedge_order(next(self.order_ids), Side.ASK, MIN_BID_NEAREST_TICK, volume)
+        # elif client_order_id in self.ask_trash:
+        #     self.position -= volume
+        #     self.send_hedge_order(next(self.order_ids), Side.BID, MAX_ASK_NEAREST_TICK, volume)
+
         if client_order_id in self.bids:
             self.position += volume
             self.send_hedge_order(next(self.order_ids), Side.ASK, MIN_BID_NEAREST_TICK, volume)
+            self.bid_canceled_waiting = False
         elif client_order_id in self.asks:
             self.position -= volume
             self.send_hedge_order(next(self.order_ids), Side.BID, MAX_ASK_NEAREST_TICK, volume)
-
-
+            self.ask_canceled_waiting = False
+    # Waaaaaaaaaaaaaaaa
+    # - Tow Mater
     def on_order_status_message(self, client_order_id: int, fill_volume: int, remaining_volume: int,
                                 fees: int) -> None:
         """Called when the status of one of your orders changes.
@@ -214,13 +231,15 @@ class AutoTrader(BaseAutoTrader):
 
         If an order is cancelled its remaining volume will be zero.
         """
-        self.logger.info("received order status for order %d with fill volume %d remaining %d and fees %d",
-                         client_order_id, fill_volume, remaining_volume, fees)
+        
+       
         if remaining_volume == 0:
             if client_order_id == self.bid_id:
                 self.bid_id = 0
+                self.bid_canceled_waiting = False
             elif client_order_id == self.ask_id:
                 self.ask_id = 0
+                self.ask_canceled_waiting = False
 
             # It could be either a bid or an ask
             self.bids.discard(client_order_id)
