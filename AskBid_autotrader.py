@@ -102,7 +102,7 @@ class AutoTrader(BaseAutoTrader):
                     new_bid_price = bid_prices[0]
                     new_ask_price = ask_prices[0]
                 else:
-                    new_bid_price = bid_prices[0] + TICK_SIZE_IN_CENTSd
+                    new_bid_price = bid_prices[0] + TICK_SIZE_IN_CENTS
                     new_ask_price = ask_prices[0] + TICK_SIZE_IN_CENTS
             else:
                 new_bid_price = 0
