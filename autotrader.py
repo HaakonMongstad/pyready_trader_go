@@ -17,6 +17,7 @@
 #     <https://www.gnu.org/licenses/>.
 import asyncio
 import itertools
+import numpy as np
 
 from typing import List
 
@@ -49,6 +50,9 @@ class AutoTrader(BaseAutoTrader):
         self.ask_id = self.ask_price = self.bid_id = self.bid_price = self.position = 0
         self.avg_bid_prices = int(0)
         self.avg_ask_prices = int(0)
+        
+        self.prev_ask_prices = [0,0,0,0,0]
+        self.prev_bid_prices = [0,0,0,0,0]
 
 
     def on_error_message(self, client_order_id: int, error_message: bytes) -> None:
@@ -98,28 +102,64 @@ class AutoTrader(BaseAutoTrader):
             #         new_bid_price = bid_prices[0]
             #         new_ask_price = ask_prices[0]
             #     else:
-            #         new_bid_price = bid_prices[0] + TICK_SIZE_IN_CENTS
+            #         new_bid_price = bid_prices[0] + TICK_SIZE_IN_CENTSd
             #         new_ask_price = ask_prices[0] + TICK_SIZE_IN_CENTS
             # else:
             #     new_bid_price = 0
             #     new_ask_price = 0
+            
 
-            #last
-            if bid_prices[0] != 0:
-                if temp_bid_prices >= self.avg_bid_prices and temp_ask_prices >= self.avg_ask_prices:
-                    new_bid_price = bid_prices[0] - TICK_SIZE_IN_CENTS
-                    new_ask_price = ask_prices[0] + (TICK_SIZE_IN_CENTS * 2)
+            # #last
+            # if bid_prices[0] != 0:
+            #     if temp_bid_prices >= self.avg_bid_prices and temp_ask_prices >= self.avg_ask_prices:
+            #         new_bid_price = bid_prices[0] - TICK_SIZE_IN_CENTS
+            #         new_ask_price = ask_prices[0] + (TICK_SIZE_IN_CENTS * 2)
                     
-                else:
-                    new_bid_price = bid_prices[0] - (TICK_SIZE_IN_CENTS * 2)
-                    new_ask_price = ask_prices[0] + TICK_SIZE_IN_CENTS
+            #     else:
+            #         new_bid_price = bid_prices[0] - (TICK_SIZE_IN_CENTS * 2)
+            #         new_ask_price = ask_prices[0] + TICK_SIZE_IN_CENTS
                     
-            else:
-                new_bid_price = 0
-                new_ask_price = 0
+            # else:
+            #     new_bid_price = 0
+            #     new_ask_price = 0
+            
 
             #last + im + v
-
+            qb = np.sum(bid_volumes) # QUinn Ewweers
+            qs = np.sum(ask_volumes) #  Geico
+            #print(f"qb: {qb}")
+            #print(f"qs: {qs}")
+            a = (qb - qs) / (qb + qs)
+            b = (qs - qb) / (qb + qs)
+            print(f"a : {a}")
+            print(f"b : {b}")
+            if self.prev_bid_prices[0] != 0 and bid_prices[0] != 0 and self.prev_ask_prices[0] != 0 and ask_prices[0] != 0:
+                ask_delta = abs(ask_prices[0] - self.prev_ask_prices[0]) // 100
+                bid_delta = abs(bid_prices[0] - self.prev_bid_prices[0]) // 100
+                mid_price  = (ask_prices[0] + bid_prices[0]) // 2
+                print(f"ask_delta: {ask_delta}")
+                print(f"bid_delta: {bid_delta}")
+                print(f"bid prices {bid_prices}")
+                if (a > 0.5):
+                    print(1)
+                    new_ask_price = mid_price + (ask_delta + 2) * TICK_SIZE_IN_CENTS
+                    new_bid_price = mid_price - bid_delta * TICK_SIZE_IN_CENTS
+                elif (b > 0.5):
+                    print(2)
+                    new_ask_price = mid_price + ask_delta * TICK_SIZE_IN_CENTS
+                    new_bid_price = mid_price - (bid_delta + 2) * TICK_SIZE_IN_CENTS
+                else:
+                    print(3)
+                    new_ask_price = mid_price + (ask_delta + 1) * TICK_SIZE_IN_CENTS
+                    new_bid_price = mid_price - (bid_delta + 1) * TICK_SIZE_IN_CENTS
+            else:
+                print(4)
+                new_bid_price = 0
+                new_ask_price = 0
+            
+            
+            print(f"new_ask_price: {new_ask_price}")
+            print(f"new_bid_price: {new_bid_price}")
 
 
             self.avg_bid_prices = temp_bid_prices
@@ -144,7 +184,10 @@ class AutoTrader(BaseAutoTrader):
                 self.ask_id = next(self.order_ids)
                 self.ask_price = new_ask_price
                 self.send_insert_order(self.ask_id, Side.SELL, new_ask_price, LOT_SIZE, Lifespan.GOOD_FOR_DAY)
-                self.asks.add(self.ask_id)            
+                self.asks.add(self.ask_id) 
+
+            self.prev_ask_prices = ask_prices
+            self.prev_bid_prices = bid_prices           
 
     def on_order_filled_message(self, client_order_id: int, price: int, volume: int) -> None:
         """Called when one of your orders is filled, partially or fully.
